@@ -1,132 +1,346 @@
 
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>同詞相遇｜派對猜詞</title>
+<title>同詞相遇</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#111323;color:#fff;font-family:Arial,"Noto Sans TC",sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
-.app{width:100%;max-width:480px;background:#1c2037;border:1px solid #343957;border-radius:24px;padding:28px;box-shadow:0 20px 60px #0006}
-h1{text-align:center;font-size:32px;margin:5px 0;color:#a99bff}
-.sub{text-align:center;color:#aeb2ca;margin-bottom:25px}
-h2{font-size:22px}
-button{border:0;border-radius:13px;padding:15px;background:#8171f5;color:white;font-size:16px;font-weight:bold;width:100%;cursor:pointer;margin-top:12px}
-button.secondary{background:#343956}
-input{width:100%;padding:15px;border-radius:12px;border:1px solid #454b6b;background:#111629;color:white;font-size:16px;margin:8px 0}
+body{margin:0;background:#111827;color:#f9fafb;font-family:Arial,"Noto Sans TC",sans-serif;padding:24px 16px}
+main{max-width:520px;margin:35px auto}
+h1{text-align:center;font-size:36px;margin-bottom:8px}
+.sub{text-align:center;color:#9ca3af;margin-bottom:30px}
+.card{background:#1f2937;border:1px solid #374151;border-radius:18px;padding:22px;margin:16px 0}
+input{width:100%;padding:14px;margin:7px 0 14px;border-radius:10px;border:1px solid #4b5563;background:#111827;color:white;font-size:16px}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#8b5cf6;color:white;font-size:16px;font-weight:bold;cursor:pointer;margin:7px 0}
+button:disabled{opacity:.45;cursor:not-allowed}
+.secondary{background:#374151}
+.small{color:#9ca3af;font-size:13px}
+.status{color:#c4b5fd;text-align:center;margin:15px 0}
+.player{padding:10px;background:#374151;border-radius:9px;margin:7px 0}
+.word{font-size:30px;text-align:center;font-weight:bold;color:#c4b5fd;padding:20px 0}
 .hidden{display:none}
-.player{padding:12px;background:#292e49;border-radius:12px;margin:8px 0;display:flex;justify-content:space-between}
-.word{font-size:32px;color:#b8aaff;text-align:center;padding:30px 5px;font-weight:bold}
-.note{color:#aeb2ca;text-align:center;font-size:14px;line-height:1.7}
+#message{white-space:pre-wrap;color:#fbbf24;margin-top:12px;text-align:center}
 </style>
 </head>
 <body>
-<div class="app">
-<h1>✦ 同詞相遇</h1>
-<div class="sub">找到和你不一樣的那個人</div>
+<main>
+<h1>同詞相遇</h1>
+<div class="sub">不同的起點，能不能想到同一個詞？</div>
 
-<section id="home">
-<h2>建立遊戲</h2>
-<p class="note">六位玩家，一場心理攻防戰。</p>
-<input id="names" placeholder="輸入六位玩家名字，用逗號分隔">
-<button onclick="start()">建立 6 人遊戲</button>
-</section>
+<section id="home" class="card">
+<h3>建立新房間</h3>
+<input id="newName" placeholder="你的暱稱">
+<input id="newWord" placeholder="你的起始詞（只有你自己知道）">
+<button onclick="createRoom()">建立房間</button>
 
-<section id="reveal" class="hidden">
-<h2 id="turn"></h2>
-<p class="note">請將手機交給下一位玩家，確認只有自己看到畫面。</p>
-<div id="secret" class="hidden">
-<div class="word" id="word"></div>
-<p class="note">記住你的詞語，不要讓別人看到！</p>
-</div>
-<button id="show" onclick="showWord()">查看我的詞語</button>
-<button id="next" class="secondary hidden" onclick="nextPlayer()">我記住了，交給下一位</button>
+<hr style="border-color:#374151;margin:22px 0">
+
+<h3>加入朋友的房間</h3>
+<input id="joinCode" placeholder="輸入房間代碼">
+<input id="joinName" placeholder="你的暱稱">
+<input id="joinWord" placeholder="你的起始詞（只有你自己知道）">
+<button class="secondary" onclick="joinRoom()">加入房間</button>
+<div id="message"></div>
 </section>
 
 <section id="game" class="hidden">
-<h2>🎯 開始討論！</h2>
-<p class="note">依序描述自己的詞語，不可以直接說出答案。</p>
-<div id="roster"></div>
-<button onclick="voting()">進入投票</button>
-</section>
-
-<section id="vote" class="hidden">
-<h2>🗳️ 投票時間</h2>
-<p class="note">選出你認為拿到不同詞語的人。</p>
-<div id="votes"></div>
-<button onclick="result()">公布結果</button>
-</section>
-
-<section id="result" class="hidden">
-<h2>🎉 遊戲結果</h2>
-<div id="outcome"></div>
-<button onclick="location.reload()">再玩一次</button>
-</section>
+<div class="card">
+<div class="small">房間代碼</div>
+<div class="word" id="roomCode"></div>
+<button class="secondary" onclick="copyCode()">複製房間代碼</button>
+<div class="status" id="gameStatus">等待玩家加入</div>
+<div id="playerList"></div>
+<button id="startBtn" onclick="startGame()" class="hidden">開始遊戲</button>
 </div>
 
-<script>
-const pairs=[
-["珍珠奶茶","奶茶"],
-["老虎","獅子"],
-["火鍋","麻辣鍋"],
-["iPhone","Android"],
-["可樂","雪碧"],
-["貓咪","狗狗"],
-["麥當勞","肯德基"],
-["飛機","高鐵"],
-["披薩","漢堡"],
-["太陽","月亮"],
-["老師","教授"],
-["蛋糕","麵包"]
-];
-let players=[],words=[],impostor=0,current=0,vote=-1;
+<div id="roundCard" class="card hidden">
+<h3 id="roundTitle">第 1 輪</h3>
+<p class="small">你目前的聯想起點是：</p>
+<div class="word" id="myPrompt"></div>
+<div id="submitArea">
+<input id="answer" placeholder="輸入你想到的關聯詞">
+<button onclick="submitAnswer()">提交答案</button>
+</div>
+<div id="waitingArea" class="status hidden">答案已提交，等待其他玩家……</div>
+<div id="revealArea" class="hidden">
+<h3 style="text-align:center">本輪揭曉</h3>
+<div id="answers"></div>
+<div id="result" class="status"></div>
+<button id="nextBtn" onclick="nextRound()" class="hidden">進入下一輪</button>
+</div>
+</div>
+</section>
+</main>
 
-function hideAll(){
-["home","reveal","game","vote","result"].forEach(id=>document.getElementById(id).classList.add("hidden"));
+<script>
+const SUPABASE_URL = "https://atvniagvlpyftljlqvqg.supabase.co";
+const SUPABASE_KEY = "sb_publishable_bBY1hXxKo96-Pf9nC2GWxA_ifgZNqKv";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let room = null;
+let me = null;
+let players = [];
+let currentRound = null;
+let myPrompt = "";
+let mySubmission = null;
+let timer = null;
+let busy = false;
+
+const $ = id => document.getElementById(id);
+const show = id => $(id).classList.remove("hidden");
+const hide = id => $(id).classList.add("hidden");
+const say = msg => $("message").textContent = msg;
+
+function saveSession(){
+  localStorage.setItem("sameword_session",JSON.stringify({
+    roomId:room.id, code:room.code, playerId:me.id,
+    nickname:me.nickname, startingWord:me.starting_word,
+    isHost:me.is_host
+  }));
 }
-function start(){
-players=document.getElementById("names").value.split(/[,，]/).map(x=>x.trim()).filter(Boolean);
-if(players.length!==6){alert("請輸入剛好六位玩家名字！");return}
-let pair=pairs[Math.floor(Math.random()*pairs.length)];
-impostor=Math.floor(Math.random()*6);
-words=players.map((_,i)=>i===impostor?pair[1]:pair[0]);
-current=0;
-hideAll();document.getElementById("reveal").classList.remove("hidden");renderTurn();
+
+async function createRoom(){
+  if(busy)return;
+  const nickname=$("newName").value.trim();
+  const word=$("newWord").value.trim();
+  if(!nickname||!word)return say("請填寫暱稱和起始詞");
+  busy=true;say("正在建立房間……");
+  try{
+    const code=Math.random().toString(36).slice(2,7).toUpperCase();
+    const playerId=crypto.randomUUID();
+
+    const {data:r,error:re}=await db.from("rooms")
+      .insert({code,max_players:6,status:"lobby"})
+      .select().single();
+    if(re)throw re;
+
+    const {data:p,error:pe}=await db.from("players")
+      .insert({id:playerId,room_id:r.id,nickname,
+        starting_word:word,is_host:true})
+      .select("id").single();
+    if(pe)throw pe;
+
+    const {error:ue}=await db.from("rooms")
+      .update({host_player_id:playerId}).eq("id",r.id);
+    if(ue)throw ue;
+
+    room=r;
+    me={id:p.id,nickname,starting_word:word,is_host:true};
+    myPrompt=word;
+    saveSession();
+    enterGame();
+  }catch(e){say("建立失敗："+e.message);}
+  finally{busy=false;}
 }
-function renderTurn(){
-document.getElementById("turn").textContent=players[current]+"，輪到你了";
-document.getElementById("secret").classList.add("hidden");
-document.getElementById("show").classList.remove("hidden");
-document.getElementById("next").classList.add("hidden");
+
+async function joinRoom(){
+  if(busy)return;
+  const code=$("joinCode").value.trim().toUpperCase();
+  const nickname=$("joinName").value.trim();
+  const word=$("joinWord").value.trim();
+  if(!code||!nickname||!word)return say("請填寫房間代碼、暱稱和起始詞");
+  busy=true;say("正在加入房間……");
+  try{
+    const {data:r,error:re}=await db.from("rooms")
+      .select("*").eq("code",code).maybeSingle();
+    if(re)throw re;
+    if(!r)throw new Error("找不到這個房間");
+    if(r.status!=="lobby")throw new Error("遊戲已經開始，不能加入");
+    const {data:existing,error:ee}=await db.from("players")
+      .select("id").eq("room_id",r.id);
+    if(ee)throw ee;
+    if(existing.length>=r.max_players)throw new Error("房間已滿");
+    const playerId=crypto.randomUUID();
+    const {data:p,error:pe}=await db.from("players")
+      .insert({id:playerId,room_id:r.id,nickname,
+        starting_word:word,is_host:false})
+      .select("id").single();
+    if(pe)throw pe;
+    room=r;
+    me={id:p.id,nickname,starting_word:word,is_host:false};
+    myPrompt=word;
+    saveSession();
+    enterGame();
+  }catch(e){say("加入失敗："+e.message);}
+  finally{busy=false;}
 }
-function showWord(){
-document.getElementById("word").textContent=words[current];
-document.getElementById("secret").classList.remove("hidden");
-document.getElementById("show").classList.add("hidden");
-document.getElementById("next").classList.remove("hidden");
+
+function enterGame(){
+  hide("home");show("game");
+  $("roomCode").textContent=room.code;
+  refresh();
+  if(timer)clearInterval(timer);
+  timer=setInterval(refresh,2000);
 }
-function nextPlayer(){
-current++;
-if(current<6){renderTurn();return}
-hideAll();document.getElementById("game").classList.remove("hidden");
-document.getElementById("roster").innerHTML=players.map((p,i)=>`<div class="player">玩家 ${i+1}：${p}</div>`).join("");
+
+async function refresh(){
+  if(!room||busy)return;
+  try{
+    const {data:r,error:re}=await db.from("rooms")
+      .select("*").eq("id",room.id).single();
+    if(re)throw re;
+    room=r;
+
+    const {data:ps,error:pe}=await db.from("players")
+      .select("id,nickname,is_host,joined_at")
+      .eq("room_id",room.id).order("joined_at");
+    if(pe)throw pe;
+    players=ps;
+    $("playerList").innerHTML=players.map(p=>
+      `<div class="player">${escapeHtml(p.nickname)} ${p.is_host?"👑 房主":""}</div>`
+    ).join("");
+
+    if(room.status==="lobby"){
+      $("gameStatus").textContent="等待玩家加入（"+players.length+"/6）";
+      hide("roundCard");
+      if(me.is_host&&players.length>=2)show("startBtn");
+      else hide("startBtn");
+      return;
+    }
+    hide("startBtn");
+
+    if(room.status==="finished"){
+      $("gameStatus").textContent="🎉 遊戲成功！大家想到同一個詞了！";
+      return;
+    }
+
+    $("gameStatus").textContent="遊戲進行中";
+    const {data:rs,error:rr}=await db.from("rounds")
+      .select("*").eq("room_id",room.id)
+      .eq("round_number",room.current_round).maybeSingle();
+    if(rr)throw rr;
+    if(!rs)return;
+    currentRound=rs;
+    show("roundCard");
+    $("roundTitle").textContent="第 "+rs.round_number+" 輪";
+
+    if(rs.round_number===1){
+      myPrompt=me.starting_word;
+    }else{
+      const {data:prev,error:pr}=await db.from("submissions")
+        .select("word,round_id,rounds!inner(round_number)")
+        .eq("player_id",me.id)
+        .eq("rounds.round_number",rs.round_number-1)
+        .maybeSingle();
+      if(pr)throw pr;
+      if(prev)myPrompt=prev.word;
+    }
+    $("myPrompt").textContent=myPrompt;
+
+    if(rs.status==="collecting"){
+      hide("revealArea");
+      const saved=localStorage.getItem("sameword_answer_"+rs.id);
+      if(saved){
+        hide("submitArea");show("waitingArea");
+      }else{
+        show("submitArea");hide("waitingArea");
+      }
+      const {data:result,error:rpcError}=await db.rpc("reveal_round",{
+        p_round_id:rs.id
+      });
+      if(rpcError)throw rpcError;
+      if(result)await refresh();
+    }else{
+      hide("submitArea");hide("waitingArea");show("revealArea");
+      await showResults(rs);
+    }
+  }catch(e){console.error(e);say("同步時發生問題："+e.message);}
 }
-function voting(){
-hideAll();document.getElementById("vote").classList.remove("hidden");
-document.getElementById("votes").innerHTML=players.map((p,i)=>`<div class="player"><label><input type="radio" name="vote" value="${i}" style="width:auto"> ${p}</label></div>`).join("");
+
+async function startGame(){
+  if(!me.is_host||players.length<2)return;
+  busy=true;
+  try{
+    const {error:e}=await db.from("rounds").insert({
+      room_id:room.id,round_number:1,status:"collecting"
+    });
+    if(e)throw e;
+    const {error:u}=await db.from("rooms")
+      .update({status:"playing",current_round:1}).eq("id",room.id);
+    if(u)throw u;
+    await refresh();
+  }catch(e){say("開始失敗："+e.message);}
+  finally{busy=false;}
 }
-function result(){
-let selected=document.querySelector('input[name="vote"]:checked');
-if(!selected){alert("請先選出一位玩家！");return}
-vote=Number(selected.value);
-hideAll();document.getElementById("result").classList.remove("hidden");
-document.getElementById("outcome").innerHTML=
-`<p>被投票的人：<b>${players[vote]}</b></p>
-<p>臥底：<b>${players[impostor]}</b></p>
-<p>大家的詞語：<b>${words[0]}</b></p>
-<p>臥底的詞語：<b>${words[impostor]}</b></p>
-<h2 style="color:${vote===impostor?'#83e6b0':'#ff9696'}">${vote===impostor?'成功找出臥底！':'臥底成功隱藏！'}</h2>`;
+
+async function submitAnswer(){
+  if(!currentRound)return;
+  const word=$("answer").value.trim();
+  if(!word)return alert("請輸入一個聯想詞");
+  busy=true;
+  try{
+    const {error}=await db.from("submissions").insert({
+      round_id:currentRound.id,player_id:me.id,word
+    });
+    if(error)throw error;
+    localStorage.setItem("sameword_answer_"+currentRound.id,word);
+    $("answer").value="";
+    hide("submitArea");show("waitingArea");
+    await refresh();
+  }catch(e){
+    say("提交失敗："+e.message);
+  }finally{busy=false;}
+}
+
+async function showResults(round){
+  const {data,error}=await db.from("submissions")
+    .select("player_id,word").eq("round_id",round.id);
+  if(error)throw error;
+  const sorted=players.map(p=>{
+    const s=data.find(x=>x.player_id===p.id);
+    return {nickname:p.nickname,word:s?s.word:"（未提交）"};
+  });
+  $("answers").innerHTML=sorted.map(x=>
+    `<div class="player">${escapeHtml(x.nickname)}：<b>${escapeHtml(x.word)}</b></div>`
+  ).join("");
+
+  const words=data.map(x=>x.word.trim().toLowerCase());
+  const allSame=words.length===players.length&&words.length>=2&&
+    words.every(w=>w===words[0]);
+
+  if(allSame){
+    $("result").textContent="🎉 全員想到相同的詞！成功相遇！";
+    hide("nextBtn");
+    if(me.is_host){
+      await db.from("rooms").update({status:"finished"}).eq("id",room.id);
+    }
+  }else{
+    $("result").textContent="還沒有全員相遇！再試下一輪吧。";
+    if(me.is_host)show("nextBtn");
+    else hide("nextBtn");
+  }
+}
+
+async function nextRound(){
+  if(!me.is_host||!currentRound||currentRound.status!=="revealed")return;
+  busy=true;
+  try{
+    const n=room.current_round+1;
+    const {error:e}=await db.from("rounds").insert({
+      room_id:room.id,round_number:n,status:"collecting"
+    });
+    if(e)throw e;
+    const {error:u}=await db.from("rooms")
+      .update({current_round:n}).eq("id",room.id);
+    if(u)throw u;
+    await refresh();
+  }catch(e){say("下一輪建立失敗："+e.message);}
+  finally{busy=false;}
+}
+
+function copyCode(){
+  navigator.clipboard.writeText(room.code)
+    .then(()=>alert("房間代碼已複製："+room.code))
+    .catch(()=>alert("房間代碼："+room.code));
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
 }
 </script>
 </body>
