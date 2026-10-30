@@ -1,0 +1,133 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>同詞相遇｜派對猜詞</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#111323;color:#fff;font-family:Arial,"Noto Sans TC",sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
+.app{width:100%;max-width:480px;background:#1c2037;border:1px solid #343957;border-radius:24px;padding:28px;box-shadow:0 20px 60px #0006}
+h1{text-align:center;font-size:32px;margin:5px 0;color:#a99bff}
+.sub{text-align:center;color:#aeb2ca;margin-bottom:25px}
+h2{font-size:22px}
+button{border:0;border-radius:13px;padding:15px;background:#8171f5;color:white;font-size:16px;font-weight:bold;width:100%;cursor:pointer;margin-top:12px}
+button.secondary{background:#343956}
+input{width:100%;padding:15px;border-radius:12px;border:1px solid #454b6b;background:#111629;color:white;font-size:16px;margin:8px 0}
+.hidden{display:none}
+.player{padding:12px;background:#292e49;border-radius:12px;margin:8px 0;display:flex;justify-content:space-between}
+.word{font-size:32px;color:#b8aaff;text-align:center;padding:30px 5px;font-weight:bold}
+.note{color:#aeb2ca;text-align:center;font-size:14px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>✦ 同詞相遇</h1>
+<div class="sub">找到和你不一樣的那個人</div>
+
+<section id="home">
+<h2>建立遊戲</h2>
+<p class="note">六位玩家，一場心理攻防戰。</p>
+<input id="names" placeholder="輸入六位玩家名字，用逗號分隔">
+<button onclick="start()">建立 6 人遊戲</button>
+</section>
+
+<section id="reveal" class="hidden">
+<h2 id="turn"></h2>
+<p class="note">請將手機交給下一位玩家，確認只有自己看到畫面。</p>
+<div id="secret" class="hidden">
+<div class="word" id="word"></div>
+<p class="note">記住你的詞語，不要讓別人看到！</p>
+</div>
+<button id="show" onclick="showWord()">查看我的詞語</button>
+<button id="next" class="secondary hidden" onclick="nextPlayer()">我記住了，交給下一位</button>
+</section>
+
+<section id="game" class="hidden">
+<h2>🎯 開始討論！</h2>
+<p class="note">依序描述自己的詞語，不可以直接說出答案。</p>
+<div id="roster"></div>
+<button onclick="voting()">進入投票</button>
+</section>
+
+<section id="vote" class="hidden">
+<h2>🗳️ 投票時間</h2>
+<p class="note">選出你認為拿到不同詞語的人。</p>
+<div id="votes"></div>
+<button onclick="result()">公布結果</button>
+</section>
+
+<section id="result" class="hidden">
+<h2>🎉 遊戲結果</h2>
+<div id="outcome"></div>
+<button onclick="location.reload()">再玩一次</button>
+</section>
+</div>
+
+<script>
+const pairs=[
+["珍珠奶茶","奶茶"],
+["老虎","獅子"],
+["火鍋","麻辣鍋"],
+["iPhone","Android"],
+["可樂","雪碧"],
+["貓咪","狗狗"],
+["麥當勞","肯德基"],
+["飛機","高鐵"],
+["披薩","漢堡"],
+["太陽","月亮"],
+["老師","教授"],
+["蛋糕","麵包"]
+];
+let players=[],words=[],impostor=0,current=0,vote=-1;
+
+function hideAll(){
+["home","reveal","game","vote","result"].forEach(id=>document.getElementById(id).classList.add("hidden"));
+}
+function start(){
+players=document.getElementById("names").value.split(/[,，]/).map(x=>x.trim()).filter(Boolean);
+if(players.length!==6){alert("請輸入剛好六位玩家名字！");return}
+let pair=pairs[Math.floor(Math.random()*pairs.length)];
+impostor=Math.floor(Math.random()*6);
+words=players.map((_,i)=>i===impostor?pair[1]:pair[0]);
+current=0;
+hideAll();document.getElementById("reveal").classList.remove("hidden");renderTurn();
+}
+function renderTurn(){
+document.getElementById("turn").textContent=players[current]+"，輪到你了";
+document.getElementById("secret").classList.add("hidden");
+document.getElementById("show").classList.remove("hidden");
+document.getElementById("next").classList.add("hidden");
+}
+function showWord(){
+document.getElementById("word").textContent=words[current];
+document.getElementById("secret").classList.remove("hidden");
+document.getElementById("show").classList.add("hidden");
+document.getElementById("next").classList.remove("hidden");
+}
+function nextPlayer(){
+current++;
+if(current<6){renderTurn();return}
+hideAll();document.getElementById("game").classList.remove("hidden");
+document.getElementById("roster").innerHTML=players.map((p,i)=>`<div class="player">玩家 ${i+1}：${p}</div>`).join("");
+}
+function voting(){
+hideAll();document.getElementById("vote").classList.remove("hidden");
+document.getElementById("votes").innerHTML=players.map((p,i)=>`<div class="player"><label><input type="radio" name="vote" value="${i}" style="width:auto"> ${p}</label></div>`).join("");
+}
+function result(){
+let selected=document.querySelector('input[name="vote"]:checked');
+if(!selected){alert("請先選出一位玩家！");return}
+vote=Number(selected.value);
+hideAll();document.getElementById("result").classList.remove("hidden");
+document.getElementById("outcome").innerHTML=
+`<p>被投票的人：<b>${players[vote]}</b></p>
+<p>臥底：<b>${players[impostor]}</b></p>
+<p>大家的詞語：<b>${words[0]}</b></p>
+<p>臥底的詞語：<b>${words[impostor]}</b></p>
+<h2 style="color:${vote===impostor?'#83e6b0':'#ff9696'}">${vote===impostor?'成功找出臥底！':'臥底成功隱藏！'}</h2>`;
+}
+</script>
+</body>
+</html>
